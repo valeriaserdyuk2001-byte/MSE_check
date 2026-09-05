@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="ru">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Перечень обследований для направления на МСЭ</title>
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <main class="container">
+    <header class="header">
+      <h1>Перечень обследований для направления на МСЭ</h1>
+      <button id="printBtn" class="secondary hidden" type="button">Печать</button>
+    </header>
+
+    <section class="card controls" aria-label="Параметры поиска">
+      <div class="field">
+        <label for="icdInput">Код МКБ-10</label>
+        <input id="icdInput" type="text" placeholder="Например, A18.2" autocomplete="off" inputmode="text">
+        <div id="icdHint" class="hint">Загрузка базы…</div>
+      </div>
+
+      <fieldset>
+        <legend>Направление</legend>
+        <label class="radio"><input type="radio" name="direction" value="primary" checked> Первичное</label>
+        <label class="radio"><input type="radio" name="direction" value="repeat"> Повторное</label>
+      </fieldset>
+
+      <div class="field">
+        <label for="mseDate">Предполагаемая дата МСЭ <span>(необязательно)</span></label>
+        <input id="mseDate" type="date">
+      </div>
+
+      <button id="searchBtn" class="primary" type="button">Сформировать список</button>
+    </section>
+
+    <section id="message" class="message hidden" role="status"></section>
+
+    <section id="result" class="card hidden">
+      <div class="result-head">
+        <div>
+          <h2>Обследования</h2>
+          <div id="resultMeta" class="meta"></div>
+        </div>
+        <div class="legend" aria-hidden="true">
+          <span>☐ не выполнено</span>
+          <span>☑ выполнено</span>
+        </div>
+      </div>
+
+      <div id="matchedCategories" class="matched"></div>
+
+      <div class="table-wrap">
+        <table id="resultsTable">
+          <thead>
+            <tr>
+              <th class="check-col">✓</th>
+              <th>Код услуги</th>
+              <th>Наименование услуги</th>
+              <th>Срок годности</th>
+              <th class="valid-from-col">Годен с</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </div>
+
+      <div class="print-footer">
+        <p>Источник: раздел I Перечня, утвержденного приказом Минтруда России и Минздрава России от 16.05.2024 № 259н/238н (лица в возрасте 18 лет и старше).</p>
+        <p>Дополнительные обследования выполняются только при наличии соответствующих показаний и условий. Исследования, связанные в приказе словом «или», объединены в отдельные блоки: в таком блоке достаточно одного варианта с учетом указанных условий. Перед направлением следует сверять сведения с действующей редакцией нормативных документов.</p>
+      </div>
+    </section>
+  </main>
+
+  <script src="app.js"></script>
+</body>
+</html>
