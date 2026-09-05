@@ -248,6 +248,10 @@ td {
   line-height: 1.4;
 }
 
+.print-patient-fields {
+  display: none;
+}
+
 
 
 .result-actions {
@@ -364,6 +368,30 @@ td {
   .card { border: 0; box-shadow: none; }
   #result { display: block !important; }
   .result-head { padding: 8px 0 12px; }
+  .print-patient-fields {
+    display: grid;
+    grid-template-columns: minmax(0, 2fr) minmax(220px, 1fr);
+    gap: 10mm;
+    margin: 2px 0 14px;
+    padding: 0 0 10px;
+  }
+  .print-patient-field {
+    display: flex;
+    align-items: flex-end;
+    gap: 7px;
+    min-width: 0;
+    font-size: 12px;
+  }
+  .print-patient-label {
+    white-space: nowrap;
+    font-weight: 700;
+  }
+  .print-patient-line {
+    flex: 1;
+    min-width: 80px;
+    height: 16px;
+    border-bottom: 1px solid #333;
+  }
   .table-wrap { overflow: visible; }
   table { font-size: 11px; }
   thead { display: table-header-group; }
@@ -381,9 +409,11 @@ td {
   .alternative-suboption-row td:nth-child(2),
   .alternative-suboption-row td:nth-child(3) { padding-left: 7px; }
   .alternative-suboption-row td:nth-child(2)::before { display: none; }
+  .section-row span,
   .option-badge,
-  .alternative-sub-label { background: white !important; color: #333 !important; }
-  .option-badge { border: 1px solid #999; }
+  .alternative-sub-label {
+    display: none !important;
+  }
   .check { width: 16px; height: 16px; }
   .print-footer { padding: 10px 0 0; color: #555; }
 }
