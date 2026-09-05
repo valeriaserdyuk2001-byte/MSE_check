@@ -410,25 +410,108 @@ function appendSectionRow(tbody, title, note, showValidFrom) {
 
 function appendServiceRow(tbody, row, direction, mseDate, options = {}) {
   const validity = parseValidity(getValidityText(row), direction);
-  if (!validity) return;
+  if (!validity) return null;
 
   const tr = document.createElement("tr");
-  if (options.className) tr.className = options.className;
+  const classNames = [];
+  if (options.className) classNames.push(options.className);
+  if (options.alternativeGroupId) classNames.push("alternative-row");
+  tr.className = classNames.join(" ");
+
+  if (options.alternativeGroupId) {
+    tr.dataset.altGroup = options.alternativeGroupId;
+    tr.dataset.altOption = String(options.alternativeOptionIndex);
+    tr.dataset.altKind = options.kind || "basic";
+  }
 
   const validFrom = mseDate ? subtractPeriod(mseDate, validity) : "";
-  const optionBadge = options.optionLabel
-    ? `<span class="option-badge">${escapeHtml(options.optionLabel)}</span>`
-    : "";
+
+  let optionLabel = "";
+  if (options.optionLabel) {
+    const cls = options.alternativeOptionIndex === 0
+      ? "option-badge"
+      : "alternative-sub-label";
+    const prefix = options.alternativeOptionIndex === 0 ? "" : "↳ ИЛИ — ";
+    optionLabel = `<span class="${cls}">${prefix}${escapeHtml(options.optionLabel)}</span>`;
+  }
+
+  let printControls = "";
+
+  if (options.alternativeGroupId && options.firstInOption) {
+    const radioName = `alt-print-${options.alternativeGroupId}`;
+    printControls += `
+      <label class="print-control alternative-choice-control">
+        <input
+          class="alternative-choice"
+          type="radio"
+          name="${escapeHtml(radioName)}"
+          value="${options.alternativeOptionIndex}"
+          data-group-id="${escapeHtml(options.alternativeGroupId)}"
+        >
+        Печатать этот вариант
+      </label>
+    `;
+  }
+
+  if (options.additionalPlain) {
+    printControls += `
+      <label class="print-control exclude-print-control">
+        <input class="exclude-print-toggle" type="checkbox">
+        Не печатать
+      </label>
+    `;
+  }
+
+  // Для дополнительной группы «ИЛИ» достаточно одного общего переключателя:
+  // можно исключить весь блок, если по показаниям он не нужен.
+  if (options.additionalAlternativeGroup && options.alternativeOptionIndex === 0 && options.firstInOption) {
+    printControls += `
+      <label class="print-control exclude-group-control">
+        <input
+          class="exclude-alt-group-toggle"
+          type="checkbox"
+          data-group-id="${escapeHtml(options.alternativeGroupId)}"
+        >
+        Не печатать эту группу
+      </label>
+    `;
+  }
 
   tr.innerHTML = `
     <td class="check-col"><input class="check" type="checkbox" aria-label="Выполнено"></td>
     <td class="service-code">${escapeHtml(getServiceCode(row))}</td>
-    <td>${optionBadge}${escapeHtml(getServiceName(row))}</td>
+    <td>
+      ${optionLabel}${escapeHtml(getServiceName(row))}
+      ${printControls ? `<div class="print-controls">${printControls}</div>` : ""}
+    </td>
     <td>${escapeHtml(validity.label)}</td>
     <td class="valid-from-col${mseDate ? "" : " hidden-col"}">${escapeHtml(validFrom)}</td>
   `;
 
   tbody.appendChild(tr);
+
+  const rowExclude = tr.querySelector(".exclude-print-toggle");
+  if (rowExclude) {
+    rowExclude.addEventListener("change", () => {
+      tr.classList.toggle("print-excluded-user", rowExclude.checked);
+    });
+  }
+
+  const choice = tr.querySelector(".alternative-choice");
+  if (choice) {
+    choice.addEventListener("change", () => {
+      updateAlternativePrintState(options.alternativeGroupId);
+    });
+  }
+
+  const groupExclude = tr.querySelector(".exclude-alt-group-toggle");
+  if (groupExclude) {
+    groupExclude.addEventListener("change", () => {
+      updateAlternativePrintState(options.alternativeGroupId);
+    });
+  }
+
+  return tr;
 }
 
 function getAlternativeGroups(code, kind, rows) {
@@ -468,57 +551,121 @@ function getConsumedAlternativeRowIds(groups) {
   return ids;
 }
 
-function appendAlternativeSeparator(tbody, showValidFrom) {
-  const tr = document.createElement("tr");
-  tr.className = "alternative-or-row";
+function updateAlternativePrintState(groupId) {
+  const rows = [...document.querySelectorAll(`tr[data-alt-group="${CSS.escape(groupId)}"]`)];
+  if (!rows.length) return;
 
-  const td = document.createElement("td");
-  td.colSpan = showValidFrom ? 5 : 4;
-  td.innerHTML = '<span class="alternative-or">ИЛИ</span>';
-  tr.appendChild(td);
-  tbody.appendChild(tr);
+  const checkedChoice = document.querySelector(
+    `input.alternative-choice[data-group-id="${CSS.escape(groupId)}"]:checked`,
+  );
+  const groupExclude = document.querySelector(
+    `input.exclude-alt-group-toggle[data-group-id="${CSS.escape(groupId)}"]`,
+  );
+  const excludeWholeGroup = Boolean(groupExclude && groupExclude.checked);
+  const selectedOption = checkedChoice ? checkedChoice.value : null;
+
+  for (const row of rows) {
+    const wrongOption = selectedOption !== null && row.dataset.altOption !== selectedOption;
+    row.classList.toggle("print-excluded-alternative", excludeWholeGroup || wrongOption);
+  }
+
+  // Если дополнительную группу исключили целиком, ее радиокнопки становятся
+  // неактивными визуально, но выбранное значение сохраняется на случай возврата.
+  document.querySelectorAll(
+    `input.alternative-choice[data-group-id="${CSS.escape(groupId)}"]`,
+  ).forEach(input => {
+    input.disabled = excludeWholeGroup;
+  });
 }
 
-function appendAlternativeGroup(tbody, group, direction, mseDate, showValidFrom) {
-  const header = document.createElement("tr");
-  header.className = "alternative-group-header";
-
-  const td = document.createElement("td");
-  td.colSpan = showValidFrom ? 5 : 4;
-  td.innerHTML = `
-    <strong>Выберите один вариант</strong>
-    <span>Достаточно одного из перечисленных вариантов с учетом условий, указанных в наименовании обследования.</span>
-  `;
-  header.appendChild(td);
-  tbody.appendChild(header);
-
+function appendNestedAlternativeGroup(tbody, group, kind, direction, mseDate) {
   group.options.forEach((option, optionIndex) => {
-    if (optionIndex > 0) appendAlternativeSeparator(tbody, showValidFrom);
-
     option.rows.forEach((row, rowIndex) => {
       appendServiceRow(tbody, row, direction, mseDate, {
-        className: "alternative-option-row",
+        className: optionIndex === 0 ? "alternative-primary-row" : "alternative-suboption-row",
         optionLabel: rowIndex === 0 ? `Вариант ${optionIndex + 1}` : "",
+        alternativeGroupId: group.id,
+        alternativeOptionIndex: optionIndex,
+        firstInOption: rowIndex === 0,
+        kind,
+        additionalAlternativeGroup: kind === "additional",
       });
     });
   });
 }
 
-function appendSectionWithAlternatives(tbody, code, kind, rows, direction, mseDate, showValidFrom) {
+function appendSectionWithAlternatives(tbody, code, kind, rows, direction, mseDate) {
   const groups = getAlternativeGroups(code, kind, rows);
   const consumed = getConsumedAlternativeRowIds(groups);
-  const normalRows = rows.filter(row => !consumed.has(getRowIdString(row)));
 
-  normalRows.forEach(row => appendServiceRow(tbody, row, direction, mseDate));
+  // Сохраняем порядок приказа: обычные строки и блоки «ИЛИ» сортируются по
+  // минимальному ID исходной строки. Первый вариант блока выглядит как обычная
+  // строка, последующие — как вложенные подварианты.
+  const items = [];
 
-  if (groups.length) {
-    const note = kind === "additional"
-      ? "В каждом блоке «ИЛИ» достаточно одного варианта; дополнительные обследования выполняются по показаниям."
-      : "В каждом блоке «ИЛИ» достаточно одного из перечисленных вариантов.";
+  rows
+    .filter(row => !consumed.has(getRowIdString(row)))
+    .forEach(row => {
+      items.push({ type: "row", sortId: getRowId(row), row });
+    });
 
-    appendSectionRow(tbody, "Альтернативные варианты", note, showValidFrom);
-    groups.forEach(group => appendAlternativeGroup(tbody, group, direction, mseDate, showValidFrom));
+  groups.forEach(group => {
+    const ids = group.options.flatMap(option => option.rows.map(getRowId));
+    items.push({
+      type: "group",
+      sortId: Math.min(...ids),
+      group,
+    });
+  });
+
+  items.sort((a, b) => a.sortId - b.sortId);
+
+  for (const item of items) {
+    if (item.type === "row") {
+      appendServiceRow(tbody, item.row, direction, mseDate, {
+        additionalPlain: kind === "additional",
+      });
+    } else {
+      appendNestedAlternativeGroup(tbody, item.group, kind, direction, mseDate);
+    }
   }
+}
+
+function validatePrintSelections() {
+  const groups = new Map();
+
+  document.querySelectorAll("tr[data-alt-group]").forEach(row => {
+    const groupId = row.dataset.altGroup;
+    if (!groups.has(groupId)) {
+      groups.set(groupId, {
+        kind: row.dataset.altKind || "basic",
+        firstRow: row,
+      });
+    }
+  });
+
+  for (const [groupId, meta] of groups) {
+    const exclude = document.querySelector(
+      `input.exclude-alt-group-toggle[data-group-id="${CSS.escape(groupId)}"]`,
+    );
+    if (exclude && exclude.checked) continue;
+
+    const selected = document.querySelector(
+      `input.alternative-choice[data-group-id="${CSS.escape(groupId)}"]:checked`,
+    );
+
+    if (!selected) {
+      showMessage(
+        meta.kind === "additional"
+          ? "Перед печатью выберите один вариант в каждом блоке «ИЛИ» дополнительных обследований или отметьте «Не печатать эту группу»."
+          : "Перед печатью выберите один вариант в каждом основном блоке «ИЛИ».",
+      );
+      meta.firstRow.scrollIntoView({ behavior: "smooth", block: "center" });
+      return false;
+    }
+  }
+
+  return true;
 }
 
 function renderResult(code, direction, mseDate, rows, rawMatches) {
@@ -546,7 +693,7 @@ function renderResult(code, direction, mseDate, rows, rawMatches) {
   if (basicRows.length) {
     appendSectionRow(tbody, "Основные обследования", "", showValidFrom);
     appendSectionWithAlternatives(
-      tbody, code, "basic", basicRows, direction, mseDate, showValidFrom,
+      tbody, code, "basic", basicRows, direction, mseDate,
     );
   }
 
@@ -558,7 +705,7 @@ function renderResult(code, direction, mseDate, rows, rawMatches) {
       showValidFrom,
     );
     appendSectionWithAlternatives(
-      tbody, code, "additional", additionalRows, direction, mseDate, showValidFrom,
+      tbody, code, "additional", additionalRows, direction, mseDate,
     );
   }
 
@@ -627,7 +774,11 @@ function showMessage(text) {
 }
 
 $("searchBtn").addEventListener("click", search);
-$("printBtn").addEventListener("click", () => window.print());
+$("printBtn").addEventListener("click", () => {
+  $("message").classList.add("hidden");
+  if (!validatePrintSelections()) return;
+  window.print();
+});
 $("icdInput").addEventListener("keydown", event => {
   if (event.key === "Enter") search();
 });

@@ -58,54 +58,6 @@ h2 {
   white-space: nowrap;
 }
 
-.alternative-group-header td {
-  background: #f6f9ff;
-  border-top: 2px solid #bfdbfe;
-  border-left: 4px solid #60a5fa;
-  padding-top: 11px;
-  padding-bottom: 11px;
-}
-
-.alternative-group-header strong {
-  display: block;
-  font-size: 14px;
-}
-
-.alternative-group-header span {
-  display: block;
-  margin-top: 3px;
-  color: var(--muted);
-  font-size: 12px;
-  font-weight: 400;
-}
-
-.alternative-option-row td {
-  background: #fbfdff;
-}
-
-.alternative-option-row td:first-child {
-  border-left: 4px solid #bfdbfe;
-}
-
-.alternative-or-row td {
-  padding: 5px 14px;
-  text-align: center;
-  background: #f8fafc;
-  border-left: 4px solid #bfdbfe;
-}
-
-.alternative-or {
-  display: inline-block;
-  padding: 2px 10px;
-  border: 1px solid #cbd5e1;
-  border-radius: 999px;
-  background: white;
-  color: #475569;
-  font-size: 11px;
-  font-weight: 700;
-  letter-spacing: .04em;
-}
-
 .print-footer {
   color: var(--muted);
 }
@@ -296,6 +248,91 @@ td {
   line-height: 1.4;
 }
 
+
+
+.result-actions {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-end;
+  gap: 8px;
+  max-width: 430px;
+}
+
+.print-hint {
+  color: var(--muted);
+  font-size: 12px;
+  line-height: 1.35;
+  text-align: right;
+}
+
+.print-controls {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 7px 12px;
+  margin-top: 7px;
+}
+
+.print-control {
+  display: inline-flex;
+  align-items: center;
+  gap: 5px;
+  color: #475569;
+  font-size: 11px;
+  line-height: 1.2;
+  cursor: pointer;
+  user-select: none;
+}
+
+.print-control input {
+  margin: 0;
+}
+
+.exclude-print-control,
+.exclude-group-control {
+  color: #9a3412;
+}
+
+.alternative-primary-row td {
+  border-top: 2px solid #dbeafe;
+}
+
+.alternative-primary-row .option-badge {
+  font-weight: 800;
+}
+
+.alternative-suboption-row td {
+  background: #f8fafc;
+}
+
+.alternative-suboption-row td:nth-child(2) {
+  padding-left: 26px;
+  position: relative;
+}
+
+.alternative-suboption-row td:nth-child(2)::before {
+  content: "↳";
+  position: absolute;
+  left: 9px;
+  color: #94a3b8;
+}
+
+.alternative-suboption-row td:nth-child(3) {
+  padding-left: 24px;
+}
+
+.alternative-sub-label {
+  display: block;
+  margin-bottom: 5px;
+  color: #64748b;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: .02em;
+}
+
+.alternative-row.print-excluded-alternative {
+  /* На экране вариант остается видимым: класс действует только при печати. */
+}
+
 @media (max-width: 900px) {
   .controls { grid-template-columns: 1fr 1fr; }
   .primary { width: 100%; }
@@ -305,6 +342,8 @@ td {
   .container { padding: 18px 12px 35px; }
   .controls { grid-template-columns: 1fr; }
   .result-head { flex-direction: column; }
+  .result-actions { align-items: flex-start; max-width: none; }
+  .print-hint { text-align: left; }
   .header { align-items: flex-start; }
   h1 { font-size: 24px; }
 }
@@ -332,13 +371,19 @@ td {
   th,
   td { padding: 6px 7px; }
   .section-row td { background: #f2f2f2 !important; }
-  .alternative-group-header td,
-  .alternative-option-row td,
-  .alternative-or-row td { background: white !important; }
-  .alternative-group-header td,
-  .alternative-option-row td:first-child,
-  .alternative-or-row td { border-left-color: #999 !important; }
-  .option-badge { background: white !important; color: #333 !important; border: 1px solid #999; }
+  .print-hint,
+  .print-controls { display: none !important; }
+  .print-excluded-user,
+  .print-excluded-alternative { display: none !important; }
+  .alternative-primary-row td,
+  .alternative-suboption-row td { background: white !important; }
+  .alternative-primary-row td { border-top-color: #999 !important; }
+  .alternative-suboption-row td:nth-child(2),
+  .alternative-suboption-row td:nth-child(3) { padding-left: 7px; }
+  .alternative-suboption-row td:nth-child(2)::before { display: none; }
+  .option-badge,
+  .alternative-sub-label { background: white !important; color: #333 !important; }
+  .option-badge { border: 1px solid #999; }
   .check { width: 16px; height: 16px; }
   .print-footer { padding: 10px 0 0; color: #555; }
 }
