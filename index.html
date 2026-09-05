@@ -4,12 +4,21 @@
   <meta charset="utf-8">
   <meta name="viewport" content="width=device-width, initial-scale=1">
   <title>Перечень обследований для направления на МСЭ</title>
-  <link rel="stylesheet" href="style.css">
+  <link rel="stylesheet" href="style.css?v=20260905-2">
+  <style>
+    @media print {
+      h1.main-title {
+        font-size: 14pt !important;
+        line-height: 1.15 !important;
+        margin: 0 0 3mm !important;
+      }
+    }
+  </style>
 </head>
 <body>
   <main class="container">
     <header class="header">
-      <h1>Перечень обследований для направления на МСЭ</h1>
+      <h1 class="main-title">Перечень обследований для направления на МСЭ</h1>
       <button id="printBtn" class="secondary hidden" type="button">Печать</button>
     </header>
 
@@ -39,7 +48,6 @@
     <section id="result" class="card hidden">
       <div class="result-head">
         <div>
-          <h2>Обследования</h2>
           <div id="resultMeta" class="meta"></div>
         </div>
         <div class="result-actions">
