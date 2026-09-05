@@ -397,9 +397,10 @@ function toggleValidFromColumn(show) {
   });
 }
 
-function appendSectionRow(tbody, title, note, showValidFrom) {
+function appendSectionRow(tbody, title, note, showValidFrom, kind) {
   const tr = document.createElement("tr");
   tr.className = "section-row";
+  if (kind) tr.dataset.sectionKind = kind;
 
   const td = document.createElement("td");
   td.colSpan = showValidFrom ? 5 : 4;
@@ -422,6 +423,8 @@ function appendServiceRow(tbody, row, direction, mseDate, options = {}) {
     tr.dataset.altGroup = options.alternativeGroupId;
     tr.dataset.altOption = String(options.alternativeOptionIndex);
     tr.dataset.altKind = options.kind || "basic";
+  } else if (options.kind) {
+    tr.dataset.rowKind = options.kind;
   }
 
   const validFrom = mseDate ? subtractPeriod(mseDate, validity) : "";
@@ -437,8 +440,37 @@ function appendServiceRow(tbody, row, direction, mseDate, options = {}) {
 
   let printControls = "";
 
+  // Обычная строка: основные обследования печатаются по умолчанию,
+  // дополнительные — только если пользователь явно отметил их для печати.
+  if (!options.alternativeGroupId && options.kind) {
+    const checked = options.kind === "basic" ? " checked" : "";
+    printControls += `
+      <label class="print-control row-print-control">
+        <input class="row-print-toggle" type="checkbox"${checked}>
+        Печатать
+      </label>
+    `;
+  }
+
   if (options.alternativeGroupId && options.firstInOption) {
+    // Для всей альтернативной группы есть отдельный переключатель печати.
+    // Основная группа включена по умолчанию, дополнительная — выключена.
+    if (options.alternativeOptionIndex === 0) {
+      const checked = options.kind === "basic" ? " checked" : "";
+      printControls += `
+        <label class="print-control alt-group-print-control">
+          <input
+            class="alt-group-print-toggle"
+            type="checkbox"
+            data-group-id="${escapeHtml(options.alternativeGroupId)}"${checked}
+          >
+          Печатать эту группу
+        </label>
+      `;
+    }
+
     const radioName = `alt-print-${options.alternativeGroupId}`;
+    const selected = options.alternativeOptionIndex === 0 ? " checked" : "";
     printControls += `
       <label class="print-control alternative-choice-control">
         <input
@@ -446,33 +478,9 @@ function appendServiceRow(tbody, row, direction, mseDate, options = {}) {
           type="radio"
           name="${escapeHtml(radioName)}"
           value="${options.alternativeOptionIndex}"
-          data-group-id="${escapeHtml(options.alternativeGroupId)}"
+          data-group-id="${escapeHtml(options.alternativeGroupId)}"${selected}
         >
-        Печатать этот вариант
-      </label>
-    `;
-  }
-
-  if (options.additionalPlain) {
-    printControls += `
-      <label class="print-control exclude-print-control">
-        <input class="exclude-print-toggle" type="checkbox">
-        Не печатать
-      </label>
-    `;
-  }
-
-  // Для дополнительной группы «ИЛИ» достаточно одного общего переключателя:
-  // можно исключить весь блок, если по показаниям он не нужен.
-  if (options.additionalAlternativeGroup && options.alternativeOptionIndex === 0 && options.firstInOption) {
-    printControls += `
-      <label class="print-control exclude-group-control">
-        <input
-          class="exclude-alt-group-toggle"
-          type="checkbox"
-          data-group-id="${escapeHtml(options.alternativeGroupId)}"
-        >
-        Не печатать эту группу
+        Выбрать этот вариант
       </label>
     `;
   }
@@ -490,24 +498,29 @@ function appendServiceRow(tbody, row, direction, mseDate, options = {}) {
 
   tbody.appendChild(tr);
 
-  const rowExclude = tr.querySelector(".exclude-print-toggle");
-  if (rowExclude) {
-    rowExclude.addEventListener("change", () => {
-      tr.classList.toggle("print-excluded-user", rowExclude.checked);
-    });
+  const rowPrint = tr.querySelector(".row-print-toggle");
+  if (rowPrint) {
+    const applyRowPrintState = () => {
+      tr.classList.toggle("print-excluded-user", !rowPrint.checked);
+      updateSectionPrintVisibility();
+    };
+    rowPrint.addEventListener("change", applyRowPrintState);
+    applyRowPrintState();
   }
 
   const choice = tr.querySelector(".alternative-choice");
   if (choice) {
     choice.addEventListener("change", () => {
       updateAlternativePrintState(options.alternativeGroupId);
+      updateSectionPrintVisibility();
     });
   }
 
-  const groupExclude = tr.querySelector(".exclude-alt-group-toggle");
-  if (groupExclude) {
-    groupExclude.addEventListener("change", () => {
+  const groupPrint = tr.querySelector(".alt-group-print-toggle");
+  if (groupPrint) {
+    groupPrint.addEventListener("change", () => {
       updateAlternativePrintState(options.alternativeGroupId);
+      updateSectionPrintVisibility();
     });
   }
 
@@ -558,23 +571,25 @@ function updateAlternativePrintState(groupId) {
   const checkedChoice = document.querySelector(
     `input.alternative-choice[data-group-id="${CSS.escape(groupId)}"]:checked`,
   );
-  const groupExclude = document.querySelector(
-    `input.exclude-alt-group-toggle[data-group-id="${CSS.escape(groupId)}"]`,
+  const groupPrint = document.querySelector(
+    `input.alt-group-print-toggle[data-group-id="${CSS.escape(groupId)}"]`,
   );
-  const excludeWholeGroup = Boolean(groupExclude && groupExclude.checked);
+
+  const printWholeGroup = groupPrint ? groupPrint.checked : true;
   const selectedOption = checkedChoice ? checkedChoice.value : null;
 
   for (const row of rows) {
     const wrongOption = selectedOption !== null && row.dataset.altOption !== selectedOption;
-    row.classList.toggle("print-excluded-alternative", excludeWholeGroup || wrongOption);
+    row.classList.toggle(
+      "print-excluded-alternative",
+      !printWholeGroup || wrongOption,
+    );
   }
 
-  // Если дополнительную группу исключили целиком, ее радиокнопки становятся
-  // неактивными визуально, но выбранное значение сохраняется на случай возврата.
   document.querySelectorAll(
     `input.alternative-choice[data-group-id="${CSS.escape(groupId)}"]`,
   ).forEach(input => {
-    input.disabled = excludeWholeGroup;
+    input.disabled = !printWholeGroup;
   });
 }
 
@@ -588,10 +603,11 @@ function appendNestedAlternativeGroup(tbody, group, kind, direction, mseDate) {
         alternativeOptionIndex: optionIndex,
         firstInOption: rowIndex === 0,
         kind,
-        additionalAlternativeGroup: kind === "additional",
       });
     });
   });
+
+  updateAlternativePrintState(group.id);
 }
 
 function appendSectionWithAlternatives(tbody, code, kind, rows, direction, mseDate) {
@@ -623,12 +639,50 @@ function appendSectionWithAlternatives(tbody, code, kind, rows, direction, mseDa
   for (const item of items) {
     if (item.type === "row") {
       appendServiceRow(tbody, item.row, direction, mseDate, {
-        additionalPlain: kind === "additional",
+        kind,
       });
     } else {
       appendNestedAlternativeGroup(tbody, item.group, kind, direction, mseDate);
     }
   }
+}
+
+function rowWillPrint(row) {
+  return !row.classList.contains("print-excluded-user") &&
+    !row.classList.contains("print-excluded-alternative");
+}
+
+function updateSectionPrintVisibility() {
+  const tbody = $("resultsTable").querySelector("tbody");
+  if (!tbody) return;
+
+  const rows = [...tbody.querySelectorAll("tr")];
+  let currentSection = null;
+  let currentSectionHasPrintableRows = false;
+
+  const flushSection = () => {
+    if (currentSection) {
+      currentSection.classList.toggle(
+        "print-excluded-section",
+        !currentSectionHasPrintableRows,
+      );
+    }
+  };
+
+  for (const row of rows) {
+    if (row.classList.contains("section-row")) {
+      flushSection();
+      currentSection = row;
+      currentSectionHasPrintableRows = false;
+      continue;
+    }
+
+    if (currentSection && rowWillPrint(row)) {
+      currentSectionHasPrintableRows = true;
+    }
+  }
+
+  flushSection();
 }
 
 function validatePrintSelections() {
@@ -645,24 +699,30 @@ function validatePrintSelections() {
   });
 
   for (const [groupId, meta] of groups) {
-    const exclude = document.querySelector(
-      `input.exclude-alt-group-toggle[data-group-id="${CSS.escape(groupId)}"]`,
+    const groupPrint = document.querySelector(
+      `input.alt-group-print-toggle[data-group-id="${CSS.escape(groupId)}"]`,
     );
-    if (exclude && exclude.checked) continue;
+    if (groupPrint && !groupPrint.checked) continue;
 
     const selected = document.querySelector(
       `input.alternative-choice[data-group-id="${CSS.escape(groupId)}"]:checked`,
     );
 
     if (!selected) {
-      showMessage(
-        meta.kind === "additional"
-          ? "Перед печатью выберите один вариант в каждом блоке «ИЛИ» дополнительных обследований или отметьте «Не печатать эту группу»."
-          : "Перед печатью выберите один вариант в каждом основном блоке «ИЛИ».",
-      );
+      showMessage("Для печатаемого блока «ИЛИ» выберите один вариант или снимите галочку «Печатать эту группу».");
       meta.firstRow.scrollIntoView({ behavior: "smooth", block: "center" });
       return false;
     }
+  }
+
+  updateSectionPrintVisibility();
+
+  const printableRows = [...document.querySelectorAll("#resultsTable tbody tr:not(.section-row)")]
+    .filter(rowWillPrint);
+
+  if (!printableRows.length) {
+    showMessage("Не выбрано ни одного обследования для печати.");
+    return false;
   }
 
   return true;
@@ -691,7 +751,7 @@ function renderResult(code, direction, mseDate, rows, rawMatches) {
   const additionalRows = rows.filter(row => getBasicAdditional(row) === "2");
 
   if (basicRows.length) {
-    appendSectionRow(tbody, "Основные обследования", "", showValidFrom);
+    appendSectionRow(tbody, "Основные обследования", "По умолчанию включены в печать; при необходимости отдельные пункты можно снять.", showValidFrom, "basic");
     appendSectionWithAlternatives(
       tbody, code, "basic", basicRows, direction, mseDate,
     );
@@ -701,13 +761,16 @@ function renderResult(code, direction, mseDate, rows, rawMatches) {
     appendSectionRow(
       tbody,
       "Дополнительные обследования",
-      "Проводятся по показаниям и условиям, указанным в наименовании услуги.",
+      "По умолчанию не включены в печать. Отметьте только те, которые нужны по показаниям и условиям.",
       showValidFrom,
+      "additional",
     );
     appendSectionWithAlternatives(
       tbody, code, "additional", additionalRows, direction, mseDate,
     );
   }
+
+  updateSectionPrintVisibility();
 
   $("result").classList.remove("hidden");
   $("printBtn").classList.remove("hidden");

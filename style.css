@@ -387,3 +387,18 @@ td {
   .check { width: 16px; height: 16px; }
   .print-footer { padding: 10px 0 0; color: #555; }
 }
+
+/* Печать: основные включены по умолчанию, дополнительные — по выбору. */
+.row-print-control,
+.alt-group-print-control {
+  font-weight: 700;
+  color: #334155;
+}
+
+.alternative-choice:disabled + * {
+  opacity: .55;
+}
+
+@media print {
+  .print-excluded-section { display: none !important; }
+}
