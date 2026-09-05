@@ -432,3 +432,24 @@ td {
 @media print {
   .print-excluded-section { display: none !important; }
 }
+
+/* Финальная шлифовка печатной формы: компактный заголовок без дублирования. */
+@media print {
+  .header {
+    margin-bottom: 4px;
+  }
+
+  .header h1 {
+    font-size: 18px;
+    line-height: 1.2;
+    font-weight: 700;
+  }
+
+  .result-head h2 {
+    display: none !important;
+  }
+
+  .result-head {
+    padding-top: 2px;
+  }
+}
